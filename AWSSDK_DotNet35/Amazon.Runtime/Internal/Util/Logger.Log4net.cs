@@ -27,7 +27,7 @@ namespace Amazon.Runtime.Internal.Util
     /// <summary>
     /// Logger wrapper for reflected log4net logging methods.
     /// </summary>
-    internal class InternalLog4netLogger : InternalLogger
+    public class InternalLog4netLogger : InternalLogger
     {
         enum LoadState { Uninitialized, Failed, Loading, Success };
 
@@ -105,26 +105,34 @@ namespace Amazon.Runtime.Internal.Util
                     logMethod = logTypeInfo.GetMethod("Log", new ITypeInfo[] { TypeFactory.GetTypeInfo(typeof(Type)), levelTypeInfo, TypeFactory.GetTypeInfo(typeof(object)), TypeFactory.GetTypeInfo(typeof(Exception)) });
                     isEnabledForMethod = logTypeInfo.GetMethod("IsEnabledFor", new ITypeInfo[] { levelTypeInfo });
 
+                    var repositoryMethod = logMangerTypeInfo.GetMethod("GetRepository", new [] {TypeFactory.GetTypeInfo(typeof (Assembly))});
+                    var repository = repositoryMethod.Invoke(null, new[] {Assembly.GetCallingAssembly()});
+                    var configured = repository.GetType().GetProperty("Configured").GetValue(repository, null);
+
                     if (getLoggerWithTypeMethod == null ||
                         isEnabledForMethod == null ||
                         logType == null ||
                         levelType == null ||
-                        logMethod == null)
+                        logMethod == null ||
+                        configured == null)
                     {
                         loadState = LoadState.Failed;
                         return;
                     }
 
-                    // If log4net logging is enabled, we attempt to activate log4net by calling XmlConfigurator.Configure()
-                    if ((AWSConfigs.LoggingConfig.LogTo & LoggingOptions.Log4Net) == LoggingOptions.Log4Net)
+                    if (!(bool)configured)
                     {
-                        ITypeInfo xmlConfiguratorType = TypeFactory.GetTypeInfo(Type.GetType("log4net.Config.XmlConfigurator, log4net"));
-                        if (xmlConfiguratorType != null)
+                        // If log4net logging is enabled, we attempt to activate log4net by calling XmlConfigurator.Configure()
+                        if ((AWSConfigs.LoggingConfig.LogTo & LoggingOptions.Log4Net) == LoggingOptions.Log4Net)
                         {
-                            MethodInfo configureMethod = xmlConfiguratorType.GetMethod("Configure", new ITypeInfo[0]);
-                            if (configureMethod != null)
+                            ITypeInfo xmlConfiguratorType = TypeFactory.GetTypeInfo(Type.GetType("log4net.Config.XmlConfigurator, log4net"));
+                            if (xmlConfiguratorType != null)
                             {
-                                configureMethod.Invoke(null, null);
+                                MethodInfo configureMethod = xmlConfiguratorType.GetMethod("Configure", new ITypeInfo[0]);
+                                if (configureMethod != null)
+                                {
+                                    configureMethod.Invoke(null, null);
+                                }
                             }
                         }
                     }

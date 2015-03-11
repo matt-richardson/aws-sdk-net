@@ -178,7 +178,7 @@ namespace Amazon.Runtime.Internal.Util
     /// <summary>
     /// Abstract logger class, base for any custom/specific loggers.
     /// </summary>
-    internal abstract class InternalLogger
+    public abstract class InternalLogger
     {
         public Type DeclaringType { get; private set; }
 
